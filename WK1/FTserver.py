@@ -19,7 +19,7 @@ def main(argv):
     print("I am", sockfd.getsockname(), "and I am listening")
 
     # listen and accept new connection
-    sockfd.listen()
+    sockfd.listen(10)
     newsock, who = sockfd.accept()
 
     # print out peer socket address information
