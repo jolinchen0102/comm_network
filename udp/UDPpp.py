@@ -1,5 +1,4 @@
 
-# start: 40160, end: 40169
 from socket import *
 from time import perf_counter
 import sys
