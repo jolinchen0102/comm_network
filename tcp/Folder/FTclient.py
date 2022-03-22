@@ -11,7 +11,7 @@ def main(argv):
     # open the target file; get file size
     # filepath = "./test.txt"
     try:
-        f = open(filepath, "r")
+        f = open(filepath, "rb")
         # content = f.read()
         # f.close()
         filesize = os.path.getsize(filepath)
@@ -59,7 +59,7 @@ def main(argv):
     print("Start sending ...")
     while (filesize > 0):
         blockLen = f.read(1000)
-        sockfd.send(blockLen.encode("ascii")) 
+        sockfd.sendall(blockLen) 
         filesize -= len(blockLen)
     f.close()
 

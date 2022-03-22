@@ -24,8 +24,7 @@ def main(argv):
     sockfd.listen(5)
 
     # add the listening socket to the READ socket list
-    RList = [sockfd, sys.stdin]
-    # print(RList)
+    RList = [sockfd]
 
     # create an empty WRITE socket list
     WList = []
@@ -84,8 +83,8 @@ def main(argv):
 
         # else did not have activity for 10 seconds,
         # just print out "Idling"
-        # else:
-        #     print("Idling")
+        else:
+            print("Idling")
 
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ ACKNOWLEDGEMENT = "OK"
 def main(argv):
     server_port = argv[1] if len(argv) == 2 else 32341
     
-    server_port = server_port if server_port else 32341
+    server_port = int(server_port) if server_port else 32341
     # set port number
     # default is 32341 if no input argument
     sockfd = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -38,7 +38,7 @@ def main(argv):
     print(message, type(message))
     filename, filesize = message.split(":")
     filesize = int(filesize)
-    f = open("%s" % filename, "w")
+    f = open("%s" % filename, "wb")
 
     # receive the file contents
     print("Start receiving . . .")
@@ -46,7 +46,7 @@ def main(argv):
     received = 0
     while received < filesize:
         rmsg = newsock.recv(1000)
-        f.write(rmsg.decode("ascii"))
+        f.write(rmsg)
         received += len(rmsg)
 
     # close connection
