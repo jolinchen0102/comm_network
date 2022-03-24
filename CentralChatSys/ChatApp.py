@@ -16,6 +16,8 @@ import socket
 import json
 import os
 import time
+import struct
+
 
 # Global variables
 MLEN = 1000  # assume all commands are shorter than 1000 bytes
@@ -26,14 +28,30 @@ SERVER_PORT = None
 SERVER_SOCKET = None
 ALL_USERS = dict()
 
+
+def send_message(sock, data: json):
+    msg = json.dumps(data).encode('ascii')
+    length = len(msg)
+    sock.send(struct.pack('!I', length))
+    sock.send(msg)
+
+
+def recv_message(sock):
+    lengthbuf = sock.recv(4)
+    length, = struct.unpack('!I', lengthbuf)
+    msg = sock.recv(length)
+    return json.loads(msg.decode('ascii'))
+
 # print_lock = threading.Lock()
 # Functions to handle user input
 
 # set up client thread for receiving updated list
+
+
 def client_thread(sockfd):
     while True:
-        msg = sockfd.recv(MLEN)
-        msg = json.loads(msg.decode('ascii'))
+        msg = recv_message(sockfd)
+        print(msg)
         if msg["CMD"] == "LIST":
             allUsers = ', '.join(['%s (%s)' % (d["UN"], d["UID"])
                                   for d in msg["DATA"]])
@@ -65,32 +83,28 @@ def do_Join():
             console_print("Socket error: %s" % emsg)
         # client send connection request
         client_info = {"CMD": "JOIN", "UN": NICKNAME, "UID": USERID}
-        sockfd.send(json.dumps(client_info).encode('ascii'))
-        # while True:
-        # wait for acknowledgement
-        msg = sockfd.recv(50)
+        send_message(sockfd, client_info)
+        msg = recv_message(sockfd)
         print(msg)
-        msg = json.loads(msg.decode('ascii'))
         if msg["CMD"] == "ACK":
-        # successful connection
+            # successful connection
             if msg["TYPE"] == "OKAY":
                 console_print("User %s (%s) is successfully connected." %
-                            (USERID, NICKNAME))
+                              (USERID, NICKNAME))
                 # create a thread to handle recv from server
-                # start_new_thread(client_thread, (SERVER_SOCKET,))
+                start_new_thread(client_thread, (SERVER_SOCKET,))
             else:
-                console_print("Error: user %s (%s) fail to connect." %
-                            (USERID, NICKNAME))
-        msg = sockfd.recv(500)
-        print(msg)
-        msg = json.loads(msg.decode('ascii'))
-        if msg["CMD"] == "LIST":
-            allUsers = ', '.join(['%s (%s)' % (d["UN"], d["UID"])
-                                for d in msg["DATA"]])
-            list_print(allUsers)
-            for d in msg["DATA"]:
-                if d['UN'] not in ALL_USERS:
-                    ALL_USERS[d['UN']] = d["UID"]
+                console_print("Error: user %s (%s) already connected." %
+                              (USERID, NICKNAME))
+        # msg = recv_message(sockfd)
+        # print(msg)
+        # if msg["CMD"] == "LIST":
+        #     allUsers = ', '.join(['%s (%s)' % (d["UN"], d["UID"])
+        #                           for d in msg["DATA"]])
+        #     list_print(allUsers)
+        #     for d in msg["DATA"]:
+        #         if d['UN'] not in ALL_USERS:
+        #             ALL_USERS[d['UN']] = d["UID"]
 
 
 def do_Send():
@@ -112,7 +126,8 @@ def do_Send():
             if len(recv_un) == 1 and recv_un[0] == "ALL":
                 send_msg = {"CMD": "SEND", "MSG": msg,
                             "TO": recv_uid, "FROM": USERID}
-                SERVER_SOCKET.send(json.dumps(send_msg).encode("ascii"))
+                send_message(SERVER_SOCKET, send_msg)
+                # SERVER_SOCKET.send(json.dumps(send_msg).encode("ascii"))
                 chat_print('[TO: ALL] %s' % (msg))
             # send to private/ group
             else:
@@ -128,7 +143,7 @@ def do_Send():
                 if len(recv_uid):
                     send_msg = {"CMD": "SEND", "MSG": msg,
                                 "TO": recv_uid, "FROM": USERID}
-                    SERVER_SOCKET.send(json.dumps(send_msg).encode("ascii"))
+                    send_message(SERVER_SOCKET, send_msg)
                     chat_print('[TO: %s] %s' % (valid_un, msg))
     chat_print("Press do_Send()")
     chat_print("Receive private message", "redmsg")

@@ -4,6 +4,21 @@ import socket
 import sys
 import select
 import json
+import struct
+
+
+def send_message(sock, data: json):
+    msg = json.dumps(data).encode('ascii')
+    length = len(msg)
+    sock.send(struct.pack('!I', length))
+    sock.send(msg)
+
+
+def recv_message(sock):
+    lengthbuf = sock.recv(4)
+    length, = struct.unpack('!I', lengthbuf)
+    msg = sock.recv(length)
+    return json.loads(msg.decode('ascii'))
 
 
 def main(argv):
@@ -51,22 +66,26 @@ def main(argv):
                     print("A new client has arrived. It is at:", caddr)
                     RList.append(newfd)
                     CList.append(newfd)
-                    rmsg = newfd.recv(500)
-                    rmsg = json.loads(rmsg.decode('ascii'))
-                    # new user joins
+                    rmsg = recv_message(newfd)
+                    # user joins
                     if rmsg["CMD"] == "JOIN":
+                        # if new user
                         if rmsg["UID"] not in CurrentUsers:
                             CurrentUsers[rmsg["UID"]] = rmsg["UN"]
+                            # send ACK OKAY
                             ack = {"CMD": "ACK", "TYPE": "OKAY"}
-                            newfd.send(json.dumps(ack).encode('ascii'))
+                            send_message(newfd, ack)
                             # update users list and send to all users
                             allusers = {"CMD": "LIST", "DATA": [
                                 {"UN": un, "UID": uid} for (uid, un) in CurrentUsers.items()]}
                             for p in CList:
-                                p.send(json.dumps(allusers).encode('ascii'))
+                                send_message(p, allusers)
+                        # if user already exists
+                        else:
+                            ack = {"CMD": "ACK", "TYPE": "FAIL"}
+                            send_message(newfd, ack)
                 # respond to new message
                 else:
-                    rmsg = sd.recv(500)
                     if rmsg:
                         print("Got a message!!")
                         if len(CList) > 1:
@@ -79,8 +98,8 @@ def main(argv):
                     #     CList.remove(sd)
                     #     RList.remove(sd)
 
-        # else did not have activity for 10 seconds,
-        # just print out "Idling"
+                    # else did not have activity for 10 seconds,
+                    # just print out "Idling"
         else:
             print("Idling")
 
