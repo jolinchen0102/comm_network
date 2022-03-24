@@ -26,11 +26,12 @@ NICKNAME = None
 SERVER = None
 SERVER_PORT = None
 SERVER_SOCKET = None
-ALL_USERS = dict()
+ALL_USERS = dict() # key: uid, value: un 
 
 
 def send_message(sock, data: json):
     msg = json.dumps(data).encode('ascii')
+    print("send:", msg)
     length = len(msg)
     sock.send(struct.pack('!I', length))
     sock.send(msg)
@@ -51,15 +52,22 @@ def recv_message(sock):
 def client_thread(sockfd):
     while True:
         msg = recv_message(sockfd)
-        print(msg)
+        print("recv:", msg)
         if msg["CMD"] == "LIST":
             allUsers = ', '.join(['%s (%s)' % (d["UN"], d["UID"])
                                   for d in msg["DATA"]])
             list_print(allUsers)
             for d in msg["DATA"]:
-                if d['UN'] not in ALL_USERS:
-                    ALL_USERS[d['UN']] = d["UID"]
-
+                if d['UID'] not in ALL_USERS:
+                    ALL_USERS[d['UID']] = d["UN"]
+        if msg["CMD"] == "MSG":
+            sender = ALL_USERS[msg["FROM"]]
+            if msg["TYPE"] == "PRIVATE":
+                chat_print("[%s] %s"%(sender, msg["MSG"]), "redmsg")
+            elif msg["TYPE"] == "GROUP":
+                chat_print("[%s] %s"%(sender, msg["MSG"]), "greenmsg")
+            else:
+                chat_print("[%s] %s"%(sender, msg["MSG"]), "bluemsg")
 
 def do_Join():
     global SERVER_SOCKET, ALL_USERS
@@ -85,7 +93,6 @@ def do_Join():
         client_info = {"CMD": "JOIN", "UN": NICKNAME, "UID": USERID}
         send_message(sockfd, client_info)
         msg = recv_message(sockfd)
-        print(msg)
         if msg["CMD"] == "ACK":
             # successful connection
             if msg["TYPE"] == "OKAY":
@@ -96,15 +103,6 @@ def do_Join():
             else:
                 console_print("Error: user %s (%s) already connected." %
                               (USERID, NICKNAME))
-        # msg = recv_message(sockfd)
-        # print(msg)
-        # if msg["CMD"] == "LIST":
-        #     allUsers = ', '.join(['%s (%s)' % (d["UN"], d["UID"])
-        #                           for d in msg["DATA"]])
-        #     list_print(allUsers)
-        #     for d in msg["DATA"]:
-        #         if d['UN'] not in ALL_USERS:
-        #             ALL_USERS[d['UN']] = d["UID"]
 
 
 def do_Send():
@@ -127,15 +125,19 @@ def do_Send():
                 send_msg = {"CMD": "SEND", "MSG": msg,
                             "TO": recv_uid, "FROM": USERID}
                 send_message(SERVER_SOCKET, send_msg)
-                # SERVER_SOCKET.send(json.dumps(send_msg).encode("ascii"))
                 chat_print('[TO: ALL] %s' % (msg))
             # send to private/ group
             else:
+                # a list of valid reveiver
                 valid_un = []
+                all_un = list(ALL_USERS.values())
+                all_uid = list(ALL_USERS.keys())
                 for un in recv_un:
                     # if nickname is in users and not user him/herself
-                    if un in ALL_USERS and un != NICKNAME:
-                        recv_uid.append(ALL_USERS[un])
+                    if un in all_un and un != NICKNAME:
+                        # get uid (key) by value (un)
+                        index = all_un.index(un)
+                        recv_uid.append(all_uid[index])
                         valid_un.append(un)
                     else:
                         console_print(
@@ -144,11 +146,7 @@ def do_Send():
                     send_msg = {"CMD": "SEND", "MSG": msg,
                                 "TO": recv_uid, "FROM": USERID}
                     send_message(SERVER_SOCKET, send_msg)
-                    chat_print('[TO: %s] %s' % (valid_un, msg))
-    chat_print("Press do_Send()")
-    chat_print("Receive private message", "redmsg")
-    chat_print("Receive group message", "greenmsg")
-    chat_print("Receive broadcast message", "bluemsg")
+                    chat_print('[TO: %s] %s' % (", ".join(valid_un), msg))
 
 
 def do_Leave():
