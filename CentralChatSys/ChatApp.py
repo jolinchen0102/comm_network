@@ -31,7 +31,6 @@ ALL_USERS = dict() # key: uid, value: un
 
 def send_message(sock, data: json):
     msg = json.dumps(data).encode('ascii')
-    print("send:", msg)
     length = len(msg)
     sock.send(struct.pack('!I', length))
     sock.send(msg)
@@ -39,28 +38,34 @@ def send_message(sock, data: json):
 
 def recv_message(sock):
     lengthbuf = sock.recv(4)
-    length, = struct.unpack('!I', lengthbuf)
-    msg = sock.recv(length)
-    return json.loads(msg.decode('ascii'))
+    if lengthbuf:
+        length, = struct.unpack('!I', lengthbuf)
+        msg = sock.recv(length)
+        return json.loads(msg.decode('ascii'))
+    return None
 
-# print_lock = threading.Lock()
-# Functions to handle user input
 
 # set up client thread for receiving updated list
 
 
 def client_thread(sockfd):
     while True:
-        msg = recv_message(sockfd)
-        print("recv:", msg)
-        if msg["CMD"] == "LIST":
+        try:
+            msg = recv_message(sockfd)
+        except OSError as emsg:
+            print("connection is broken!", emsg)
+            break
+        if not msg:
+            break
+        elif msg["CMD"] == "LIST":
             allUsers = ', '.join(['%s (%s)' % (d["UN"], d["UID"])
                                   for d in msg["DATA"]])
             list_print(allUsers)
+            # update user lists
             for d in msg["DATA"]:
                 if d['UID'] not in ALL_USERS:
                     ALL_USERS[d['UID']] = d["UN"]
-        if msg["CMD"] == "MSG":
+        elif msg["CMD"] == "MSG":
             sender = ALL_USERS[msg["FROM"]]
             if msg["TYPE"] == "PRIVATE":
                 chat_print("[%s] %s"%(sender, msg["MSG"]), "redmsg")
@@ -150,8 +155,9 @@ def do_Send():
 
 
 def do_Leave():
-    # The following statement is just for demo purpose
-    # Remove it when you implement the function
+    global SERVER_SOCKET
+    SERVER_SOCKET.close()
+    SERVER_SOCKET = None
     list_print("Press do_Leave()")
 
 
