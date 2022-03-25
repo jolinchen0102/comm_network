@@ -1,16 +1,14 @@
 #!/usr/bin/python3
 
-# Student name and No.:
-# Development platform:
-# Python version:
-# Version:
+# Student name and No.: Chen Yulin, 3035447398
+# Development platform: MacOS
+# Python version: 3.8.8
 
 
 from tkinter import *
 from tkinter import ttk
 from tkinter import font
 from _thread import *
-import threading
 import sys
 import socket
 import json
@@ -26,58 +24,81 @@ NICKNAME = None
 SERVER = None
 SERVER_PORT = None
 SERVER_SOCKET = None
-ALL_USERS = dict() # key: uid, value: un 
+ALL_USERS = dict()  # key: uid, value: un
 
 
-def send_message(sock, data: json):
+def send_message(sock: socket, data: json):
+    """send message to the destination socket
+
+    Args:
+        sock (socket): destination socket
+        data (json): message
+    """
     msg = json.dumps(data).encode('ascii')
     length = len(msg)
     sock.send(struct.pack('!I', length))
     sock.send(msg)
 
 
-def recv_message(sock):
+def recv_message(sock: socket):
+    """receive message from connected socket
+
+    Args:
+        sock (socket): connected peer server
+
+    Returns:
+        dict : json object sent by peer
+    """
     lengthbuf = sock.recv(4)
     if lengthbuf:
         length, = struct.unpack('!I', lengthbuf)
         msg = sock.recv(length)
         return json.loads(msg.decode('ascii'))
-    return None
+    return dict()
 
 
-# set up client thread for receiving updated list
+def client_thread(sockfd: socket):
+    """set up client thread for receiving message and updated list
 
-
-def client_thread(sockfd):
+    Args:
+        sockfd (socket): source socket
+    """
+    global ALL_USERS
     while True:
         try:
             msg = recv_message(sockfd)
         except OSError as emsg:
-            print("connection is broken!", emsg)
+            # connection already broken
+            # print("connection is broken!", emsg)
             break
+        # broken connection
         if not msg:
             break
+        # receive updated user list
         elif msg["CMD"] == "LIST":
             allUsers = ', '.join(['%s (%s)' % (d["UN"], d["UID"])
                                   for d in msg["DATA"]])
             list_print(allUsers)
+            updated_uid = {js["UID"]: js["UN"] for js in msg["DATA"]}
             # update user lists
-            for d in msg["DATA"]:
-                if d['UID'] not in ALL_USERS:
-                    ALL_USERS[d['UID']] = d["UN"]
+            ALL_USERS = updated_uid
+        # receive message from others
         elif msg["CMD"] == "MSG":
             sender = ALL_USERS[msg["FROM"]]
             if msg["TYPE"] == "PRIVATE":
-                chat_print("[%s] %s"%(sender, msg["MSG"]), "redmsg")
+                chat_print("[%s] %s" % (sender, msg["MSG"]), "redmsg")
             elif msg["TYPE"] == "GROUP":
-                chat_print("[%s] %s"%(sender, msg["MSG"]), "greenmsg")
+                chat_print("[%s] %s" % (sender, msg["MSG"]), "greenmsg")
             else:
-                chat_print("[%s] %s"%(sender, msg["MSG"]), "bluemsg")
+                chat_print("[%s] %s" % (sender, msg["MSG"]), "bluemsg")
+
 
 def do_Join():
     global SERVER_SOCKET, ALL_USERS
+    # if connection already exists
     if SERVER_SOCKET:
         console_print("Already connected to server")
+    # if no connection
     else:
         try:
             # connect to chat server
@@ -97,6 +118,7 @@ def do_Join():
         # client send connection request
         client_info = {"CMD": "JOIN", "UN": NICKNAME, "UID": USERID}
         send_message(sockfd, client_info)
+        # receive ack from server
         msg = recv_message(sockfd)
         if msg["CMD"] == "ACK":
             # successful connection
@@ -112,11 +134,14 @@ def do_Join():
 
 def do_Send():
     global SERVER_SOCKET, ALL_USERS
+    # if no connection
     if not SERVER_SOCKET:
         console_print("Connect to the server first before sending messages")
     else:
+        # get receipients from user input
         to = get_tolist()
         recv_un = [un.strip() for un in to.split(',')]
+        # get message from user input
         msg = get_sendmsg()
         # if either 'TO' or 'message' field is empty
         if not (to and msg):
@@ -158,7 +183,9 @@ def do_Leave():
     global SERVER_SOCKET
     SERVER_SOCKET.close()
     SERVER_SOCKET = None
-    list_print("Press do_Leave()")
+    console_print("User %s (%s) left the cat" %
+                  (USERID, NICKNAME))
+    list_print("")
 
 
 #################################################################################

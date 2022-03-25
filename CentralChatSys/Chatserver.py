@@ -1,31 +1,52 @@
 #!/usr/bin/python
 
+# Student name and No.: Chen Yulin, 3035447398
+# Development platform: MacOS
+# Python version: 3.8.8
+
 import socket
 import sys
 import select
 import json
 import struct
 
-# a dict of current users (empty write list) key=UID, value=(UN, socket)
+# Global variables
+# a dict of current users (empty write socket list) key=UID, value=(UN, socket)
 CURRENT_USERS = dict()
 
 
-def send_message(sock, data: json):
+def send_message(sock: socket, data: json):
+    """send message to the destination socket
+
+    Args:
+        sock (socket): destination socket
+        data (json): message
+    """
     msg = json.dumps(data).encode('ascii')
     length = len(msg)
     sock.send(struct.pack('!I', length))
     sock.send(msg)
 
 
-def recv_message(sock):
+def recv_message(sock: socket):
+    """receive message from connected socket
+
+    Args:
+        sock (socket): connected peer server
+
+    Returns:
+        dict : json object sent by peer
+    """
     lengthbuf = sock.recv(4)
     if lengthbuf:
         length, = struct.unpack('!I', lengthbuf)
         msg = sock.recv(length)
         return json.loads(msg.decode('ascii'))
-    return None
+    return dict()
 
-# update user list when user joins or leaves
+# send updatef user list to all when user joins or leaves
+
+
 def update_list():
     global CURRENT_USERS
     # update users list and send to all users
@@ -54,28 +75,26 @@ def main(argv):
     # set socket listening queue
     sockfd.listen(5)
 
-    # add the listening socket to the READ socket list & create an empty WRITE socket list
+    # add the listening socket to the READ socket list
     RList = [sockfd]
 
     while True:
         # use select to wait for any incoming connection requests or incoming messages or 10 seconds
         try:
-            Rready, Wready, Eready = select.select(RList, [], [], 10)
+            Rready, _, _ = select.select(RList, [], [], 10)
         except select.error as emsg:
-            print("At select, caught an exception:", emsg)
             sys.exit(1)
         except KeyboardInterrupt:
-            print("At select, caught the KeyboardInterrupt")
             sys.exit(1)
 
         # if has incoming activities
         if Rready:
             # for each socket in the READ ready list
             for sd in Rready:
-                # accept new connection request
+                # accept new client connection request
                 if sd == sockfd:
-                    newfd, caddr = sockfd.accept()
-                    print("A new client has arrived. It is at:", caddr)
+                    newfd, _ = sockfd.accept()
+                    # receive join message from client
                     rmsg = recv_message(newfd)
                     # user joins
                     if rmsg["CMD"] == "JOIN":
@@ -86,12 +105,8 @@ def main(argv):
                             ack = {"CMD": "ACK", "TYPE": "OKAY"}
                             send_message(newfd, ack)
                             RList.append(newfd)
+                            # send updated peer list to all
                             update_list()
-                            # # update users list and send to all users
-                            # allusers = {"CMD": "LIST", "DATA": [
-                            #     {"UN": info[0], "UID": uid} for (uid, info) in CURRENT_USERS.items()]}
-                            # for _, soc in CURRENT_USERS.values():
-                            #     send_message(soc, allusers)
                         # if user already exists
                         else:
                             ack = {"CMD": "ACK", "TYPE": "FAIL"}
@@ -101,38 +116,38 @@ def main(argv):
                     rmsg = recv_message(sd)
                     # if connection is broken
                     if not rmsg:
-                        print("A client connection is broken!!")
-                        # remove user
+                        # remove user from peer list, ignore if sokcet not associated with any peer
                         CURRENT_USERS = {
                             key: val for key, val in CURRENT_USERS.items() if val[1] != sd}
                         RList.remove(sd)
+                        # send updated peer list to all
                         update_list()
-                    # client sends a message
+                    # receive message from client
                     elif rmsg["CMD"] == "SEND":
                         msg = {"CMD": "MSG", "TYPE": "",
                                "MSG": rmsg["MSG"], "FROM": rmsg["FROM"]}
-                        print("Got a message!!")
                         # broadcast message
                         if not rmsg["TO"]:
                             msg["TYPE"] = "ALL"
                             for _, soc in CURRENT_USERS.values():
                                 if soc != sd:
                                     send_message(soc, msg)
-                                    # private message
+                        # private message
                         elif len(rmsg["TO"]) == 1:
                             msg["TYPE"] = "PRIVATE"
                             receipient_uid = rmsg["TO"][0]
-                            _, soc = CURRENT_USERS[receipient_uid]
-                            send_message(soc, msg)
+                            if receipient_uid in CURRENT_USERS:
+                                _, soc = CURRENT_USERS[receipient_uid]
+                                send_message(soc, msg)
                         # group message
                         else:
                             msg["TYPE"] = "GROUP"
                             for receipient_uid in rmsg["TO"]:
                                 _, soc = CURRENT_USERS[receipient_uid]
                                 send_message(soc, msg)
+                    else:
+                        print("Error: unknown command")
 
-                    # else did not have activity for 10 seconds,
-                    # just print out "Idling"
         else:
             print("Idling")
 

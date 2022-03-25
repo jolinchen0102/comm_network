@@ -2,5 +2,5 @@
   "USERID": "Tony@hku.hk",
   "NICKNAME": "Tony",
   "SERVER": "127.0.0.1",
-  "SERVER_PORT": 32349
+  "SERVER_PORT": 40160
 }
