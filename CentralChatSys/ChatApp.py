@@ -111,10 +111,12 @@ def do_Join():
             SERVER_SOCKET = sockfd
         except socket.timeout as emsg:
             console_print("Server could not be reached.")
+            return
         except socket.error as emsg:
             # server cannot be reached
             time.sleep(2)  # ???
             console_print("Socket error: %s" % emsg)
+            return
         # client send connection request
         client_info = {"CMD": "JOIN", "UN": NICKNAME, "UID": USERID}
         send_message(sockfd, client_info)
@@ -181,11 +183,15 @@ def do_Send():
 
 def do_Leave():
     global SERVER_SOCKET
-    SERVER_SOCKET.close()
-    SERVER_SOCKET = None
-    console_print("User %s (%s) left the cat" %
-                  (USERID, NICKNAME))
-    list_print("")
+    if SERVER_SOCKET:
+        SERVER_SOCKET.close()
+        SERVER_SOCKET = None
+        console_print("User %s (%s) left the chat" %
+                    (USERID, NICKNAME))
+        list_print("")
+    else:
+        console_print("User %s (%s) already left the chat" %
+                    (USERID, NICKNAME))
 
 
 #################################################################################

@@ -81,7 +81,7 @@ def main(argv):
     while True:
         # use select to wait for any incoming connection requests or incoming messages or 10 seconds
         try:
-            Rready, _, _ = select.select(RList, [], [], 10)
+            Rready, _, _ = select.select(RList, [], [], 30)
         except select.error as emsg:
             sys.exit(1)
         except KeyboardInterrupt:
