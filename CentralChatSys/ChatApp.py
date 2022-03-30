@@ -173,12 +173,17 @@ def do_Send():
                         valid_un.append(un)
                     else:
                         console_print(
-                            "Please do not include yourself or unknown user in the receipient list")
+                            "Invalid reveipient %s. Please do not include yourself or unknown user in the 'TO' list"%un)
+                # if there are still receivers after filtering
                 if len(recv_uid):
                     send_msg = {"CMD": "SEND", "MSG": msg,
                                 "TO": recv_uid, "FROM": USERID}
                     send_message(SERVER_SOCKET, send_msg)
                     chat_print('[TO: %s] %s' % (", ".join(valid_un), msg))
+                # no valid receiver entered by user
+                else:
+                    console_print(
+                        "No valid revceipients. Please do not include yourself or unknown user in the 'TO' list")
 
 
 def do_Leave():
@@ -187,11 +192,11 @@ def do_Leave():
         SERVER_SOCKET.close()
         SERVER_SOCKET = None
         console_print("User %s (%s) left the chat" %
-                    (USERID, NICKNAME))
+                      (USERID, NICKNAME))
         list_print("")
     else:
         console_print("User %s (%s) already left the chat" %
-                    (USERID, NICKNAME))
+                      (USERID, NICKNAME))
 
 
 #################################################################################
