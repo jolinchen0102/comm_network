@@ -15,6 +15,5 @@ To run the application:
 [Notice: by changing the variable `SERVER` in the config file to the server's IP address, you can test this program using different devices]
 
 
-
-https://user-images.githubusercontent.com/57619022/183799719-3a66788f-ef61-4f89-a234-5dfa6be1d380.mov
+https://youtu.be/lSfKQ0_YcHQ
 
